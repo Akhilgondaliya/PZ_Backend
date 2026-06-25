@@ -5,7 +5,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import qrcode
 
-# Import our custom modules
 from url_checker import check_url
 from ssl_checker import check_ssl
 from whois_checker import check_whois

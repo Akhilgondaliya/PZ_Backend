@@ -72,7 +72,7 @@ def make_badge(label, bg_color):
 def make_heading(text, heading_style):
     square = Table([['']], colWidths=[8], rowHeights=[8])
     square.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#0f172a')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2563eb')), # Vibrant Blue
         ('PADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
@@ -82,8 +82,9 @@ def make_heading(text, heading_style):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('LINEBELOW', (0, 0), (-1, -1), 1, colors.HexColor('#3b82f6')), # Accent bottom rule for headings
     ]))
     t.spaceBefore = 12
     t.spaceAfter = 8
@@ -114,7 +115,7 @@ def generate_pdf(scan_data):
         fontName='Helvetica-Bold',
         fontSize=18,
         leading=22,
-        textColor=colors.HexColor('#0f172a'),
+        textColor=colors.HexColor('#1e3a8a'), # Premium Dark Blue Title
         alignment=0
     )
     
@@ -132,7 +133,7 @@ def generate_pdf(scan_data):
         fontName='Helvetica-Bold',
         fontSize=11,
         leading=15,
-        textColor=colors.HexColor('#0f172a'),
+        textColor=colors.HexColor('#1e3a8a'), # Premium Dark Blue Section Heading
         spaceAfter=0,
         spaceBefore=0
     )
@@ -142,7 +143,7 @@ def generate_pdf(scan_data):
         fontName='Helvetica-Bold',
         fontSize=11,
         leading=15,
-        textColor=colors.HexColor('#0f172a'),
+        textColor=colors.HexColor('#1e3a8a'), # Premium Dark Blue
         spaceAfter=8,
         spaceBefore=12
     )
@@ -202,7 +203,7 @@ def generate_pdf(scan_data):
     # 1. Title Block with solid colored accent square
     square_table = Table([['']], colWidths=[12], rowHeights=[12])
     square_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#0f172a')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2563eb')), # Vibrant Blue Title square
         ('PADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
@@ -227,10 +228,10 @@ def generate_pdf(scan_data):
     story.append(Paragraph(meta_text, meta_style))
     story.append(Spacer(1, 8))
     
-    # Thin divider rule
+    # Thin divider rule (Vibrant Blue)
     divider = Table([['']], colWidths=[504], rowHeights=[1])
     divider.setStyle(TableStyle([
-        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('LINEBELOW', (0, 0), (-1, -1), 1.5, colors.HexColor('#3b82f6')), # Thicker, colorful divider
         ('PADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
@@ -442,18 +443,18 @@ def generate_pdf(scan_data):
     tech_table = Table(tech_rows, colWidths=[220, 284])
     
     tech_styles = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')), # Navy Blue header row
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('LINEBEFORE', (1, 0), (1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#bfdbfe')), # Soft Blue horizontal borders
+        ('LINEBEFORE', (1, 0), (1, -1), 0.5, colors.HexColor('#bfdbfe')), # Soft Blue vertical separator
     ]
     
     for r_idx in range(1, len(tech_rows)):
-        bg = colors.HexColor('#f1f5f9') if r_idx % 2 == 0 else colors.white
+        bg = colors.HexColor('#eff6ff') if r_idx % 2 == 0 else colors.white # Soft Blue alternating rows
         tech_styles.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
         
     tech_table.setStyle(TableStyle(tech_styles))

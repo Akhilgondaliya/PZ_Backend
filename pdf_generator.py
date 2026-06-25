@@ -74,36 +74,31 @@ def make_badge(label, bg_color):
     ]))
     return t
 
-def make_shield_logo(width, height, color):
+def make_shield_logo(width, height, color, filled=True):
     """
     Generate a vector shield logo as a Flowable (Drawing).
-    Matches the classic FiShield shape: flat top, curved sides, pointed bottom.
+    Matches the FiShield icon: outline shield with no inner icon.
+    Set filled=False for outline-only (matching the app navbar look).
     """
     d = Drawing(width, height)
     w = width
     h = height
-    # Classic shield: flat top, straight sides that angle inward to a bottom point
+    # FiShield shape: rounded top arch, sides taper to bottom point
     pts = [
-        0, h,                  # Top-left corner
-        w, h,                  # Top-right corner
-        w, h * 0.45,           # Right side drops straight down
-        w / 2, 0,              # Bottom center point
-        0, h * 0.45,           # Left side drops straight down
+        w * 0.5, h,            # Top center arch
+        w * 0.85, h * 0.92,    # Top-right curve
+        w, h * 0.82,           # Right shoulder
+        w, h * 0.42,           # Right side drops
+        w * 0.5, 0,            # Bottom center point
+        0, h * 0.42,           # Left side drops
+        0, h * 0.82,           # Left shoulder
+        w * 0.15, h * 0.92,    # Top-left curve
     ]
-    shield = Polygon(pts, fillColor=color, strokeColor=None)
+    if filled:
+        shield = Polygon(pts, fillColor=color, strokeColor=None)
+    else:
+        shield = Polygon(pts, fillColor=None, strokeColor=color, strokeWidth=max(1.2, w * 0.08))
     d.add(shield)
-
-    # Clean inner checkmark (tick mark)
-    check_pts = [
-        w * 0.22, h * 0.55,    # Start of check (left)
-        w * 0.42, h * 0.30,    # Bottom of check (dip)
-        w * 0.78, h * 0.75,    # End of check (right-top)
-        w * 0.68, h * 0.80,    # Inner right-top
-        w * 0.42, h * 0.45,    # Inner dip
-        w * 0.30, h * 0.62,    # Inner left
-    ]
-    checkmark = Polygon(check_pts, fillColor=colors.white, strokeColor=None)
-    d.add(checkmark)
     return d
 
 def make_heading(text, heading_style):
@@ -281,12 +276,12 @@ def generate_pdf(scan_data):
         alignment=2
     )
     
-    logo_text = "<b><font color='#3b82f6'>PHISH</font><font color='#ffffff'>ZERO</font></b>"
+    logo_text = "<b><font color='#ffffff'>Phish</font><font color='#00d4ff'>Zero</font></b>"
     p_logo = Paragraph(logo_text, header_left_style)
     p_sub = Paragraph("REAL-TIME THREAT INTELLIGENCE AUDIT", header_subtitle_style)
     
     # Subtable to align shield logo and text horizontally
-    header_shield = make_shield_logo(20, 24, colors.HexColor('#3b82f6'))
+    header_shield = make_shield_logo(22, 26, colors.HexColor('#00d4ff'), filled=False)
     logo_sub_data = [[header_shield, p_logo]]
     logo_sub_table = Table(logo_sub_data, colWidths=[26, 294])
     logo_sub_table.setStyle(TableStyle([

@@ -107,7 +107,7 @@ def make_shield_logo(width, height, color):
 
 def make_heading(text, heading_style):
     shield = make_shield_logo(10, 12, colors.HexColor('#2563eb'))
-    t = Table([[shield, Paragraph(text, heading_style)]], colWidths=[16, 488])
+    t = Table([[shield, Paragraph(text, heading_style)]], colWidths=[16, 488])  # Total: 504
     t.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
@@ -363,7 +363,7 @@ def generate_pdf(scan_data):
         Paragraph(f"<b>{score}</b> <font size=8 color='#64748b'>/ 100</font>", v_score_val_style)
     ]
     
-    verdict_table = Table([[left_flowables, right_flowables]], colWidths=[330, 140])
+    verdict_table = Table([[left_flowables, right_flowables]], colWidths=[344, 160])  # Total: 504
     verdict_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), verdict_bg),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -400,7 +400,7 @@ def generate_pdf(scan_data):
             Paragraph(url, url_text_style)
         ]
     ]]
-    url_card = Table(url_card_data, colWidths=[494])
+    url_card = Table(url_card_data, colWidths=[504])  # Total: 504
     url_card.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')), # Light slate-50
         ('LINEBEFORE', (0, 0), (0, -1), 3, colors.HexColor('#3b82f6')), # Blue left border

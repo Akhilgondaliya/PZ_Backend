@@ -17,11 +17,12 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configure CORS dynamically from environment, supporting localhost options
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://client-jade-rho.vercel.app")
 CORS(app, resources={r"/*": {
     "origins": [
         "http://localhost:5173", 
         "http://127.0.0.1:5173", 
+        "https://client-jade-rho.vercel.app",
         FRONTEND_URL
     ]
 }})
@@ -227,7 +228,21 @@ def save_contact_message():
         "message": message
     }
     
-    messages_filepath = os.path.join(os.path.dirname(__file__), 'messages.json')
+    # Resolve messages filepath (using /tmp on serverless environments to allow writing)
+    is_serverless = os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+    if is_serverless:
+        messages_filepath = "/tmp/messages.json"
+        # If the file doesn't exist in /tmp yet, seed it from original directory if possible
+        if not os.path.exists(messages_filepath):
+            orig_path = os.path.join(os.path.dirname(__file__), 'messages.json')
+            if os.path.exists(orig_path):
+                try:
+                    import shutil
+                    shutil.copy2(orig_path, messages_filepath)
+                except Exception:
+                    pass
+    else:
+        messages_filepath = os.path.join(os.path.dirname(__file__), 'messages.json')
     
     # Load existing messages
     existing_messages = []

@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from PIL import Image
-from pyzbar.pyzbar import decode
 
 def decode_qr(image_file):
     """
@@ -15,6 +14,7 @@ def decode_qr(image_file):
         
         # Method 1: pyzbar decoding via PIL
         try:
+            from pyzbar.pyzbar import decode
             pil_img = Image.open(image_file)
             decoded_objects = decode(pil_img)
             if decoded_objects:

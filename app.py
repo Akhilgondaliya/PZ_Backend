@@ -370,6 +370,39 @@ def get_sample_apk():
     except Exception as e:
         return jsonify({"error": f"Failed to generate sample APK: {str(e)}"}), 500
 
+@app.route('/api/sample-apk-safe', methods=['GET'])
+def get_sample_apk_safe():
+    """
+    Generates and returns an in-memory ZIP archive representing a safe mock APK file.
+    Contains standard internet permissions and a safe URL.
+    """
+    try:
+        import zipfile
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Write a mock AndroidManifest.xml with standard safe permissions
+            manifest_content = (
+                b"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                b"<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n"
+                b"    <uses-permission android:name=\"android.permission.INTERNET\" />\n"
+                b"</manifest>"
+            )
+            zip_file.writestr("AndroidManifest.xml", manifest_content)
+            
+            # Write a mock classes.dex with safe URL
+            dex_content = b"classes.dex content containing safe link: https://google.com"
+            zip_file.writestr("classes.dex", dex_content)
+            
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype='application/vnd.android.package-archive',
+            as_attachment=True,
+            download_name='sample_safe.apk'
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate safe sample APK: {str(e)}"}), 500
+
 @app.route('/api/sample-image', methods=['GET'])
 def get_sample_image():
     """
@@ -397,6 +430,63 @@ def get_sample_image():
         )
     except Exception as e:
         return jsonify({"error": f"Failed to generate sample image: {str(e)}"}), 500
+
+@app.route('/api/sample-image-safe', methods=['GET'])
+def get_sample_image_safe():
+    """
+    Generates and returns an in-memory safe PNG.
+    """
+    try:
+        from PIL import Image, ImageDraw
+        img = Image.new('RGB', (120, 120), color = (13, 27, 42))
+        d = ImageDraw.Draw(img)
+        d.text((15, 50), "PhishZero Safe", fill=(46, 196, 182))
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        
+        # Append a safe link or keep it clean
+        stego_bytes = buffer.getvalue() + b"\n\nInfo URL: https://google.com\n"
+        buffer_stego = io.BytesIO(stego_bytes)
+        
+        return send_file(
+            buffer_stego,
+            mimetype='image/png',
+            as_attachment=True,
+            download_name='sample_safe.png'
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate safe sample image: {str(e)}"}), 500
+
+@app.route('/api/sample-qr-safe', methods=['GET'])
+def get_sample_qr_safe():
+    """
+    Generates and returns a PNG QR code pointing to the safe URL: https://google.com
+    """
+    try:
+        safe_url = "https://google.com"
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(safe_url)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+        
+        return send_file(
+            buffer,
+            mimetype='image/png',
+            as_attachment=True,
+            download_name='sample_qr_safe.png'
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate safe sample QR: {str(e)}"}), 500
 
 @app.route('/api/contact', methods=['POST'])
 def save_contact_message():

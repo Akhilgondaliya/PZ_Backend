@@ -334,6 +334,70 @@ def get_sample_qr():
     except Exception as e:
         return jsonify({"error": f"Failed to generate sample QR: {str(e)}"}), 500
 
+@app.route('/api/sample-apk', methods=['GET'])
+def get_sample_apk():
+    """
+    Generates and returns an in-memory ZIP archive representing a mock APK file.
+    It contains a AndroidManifest.xml with dangerous permission tags
+    and a classes.dex file containing hardcoded phishing URL strings.
+    """
+    try:
+        import zipfile
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Write a mock AndroidManifest.xml with permissions
+            manifest_content = (
+                b"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                b"<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n"
+                b"    <uses-permission android:name=\"android.permission.SEND_SMS\" />\n"
+                b"    <uses-permission android:name=\"android.permission.RECEIVE_SMS\" />\n"
+                b"    <uses-permission android:name=\"android.permission.SYSTEM_ALERT_WINDOW\" />\n"
+                b"</manifest>"
+            )
+            zip_file.writestr("AndroidManifest.xml", manifest_content)
+            
+            # Write a mock classes.dex with hardcoded URL
+            dex_content = b"classes.dex content containing mock phishing link: http://paypal-secure-login.verify-account.tk/login"
+            zip_file.writestr("classes.dex", dex_content)
+            
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype='application/vnd.android.package-archive',
+            as_attachment=True,
+            download_name='sample_phish.apk'
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate sample APK: {str(e)}"}), 500
+
+@app.route('/api/sample-image', methods=['GET'])
+def get_sample_image():
+    """
+    Generates and returns an in-memory PNG containing stego-appended bytes 
+    with a hardcoded phishing URL: http://paypal-secure-login.verify-account.tk/login
+    """
+    try:
+        from PIL import Image, ImageDraw
+        img = Image.new('RGB', (120, 120), color = (13, 27, 42))
+        d = ImageDraw.Draw(img)
+        d.text((15, 50), "PhishZero Stego", fill=(0, 212, 255))
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        
+        # Append raw string bytes containing the phishing URL at the end of the PNG binary data
+        stego_bytes = buffer.getvalue() + b"\n\nHidden URL: http://paypal-secure-login.verify-account.tk/login\n"
+        buffer_stego = io.BytesIO(stego_bytes)
+        
+        return send_file(
+            buffer_stego,
+            mimetype='image/png',
+            as_attachment=True,
+            download_name='sample_stego.png'
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate sample image: {str(e)}"}), 500
+
 @app.route('/api/contact', methods=['POST'])
 def save_contact_message():
     """

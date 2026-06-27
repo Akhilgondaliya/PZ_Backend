@@ -34,7 +34,10 @@ data = {
 try:
     print("Generating PDF...")
     pdf_bytes = generate_pdf(data)
-    print("Success! PDF bytes length:", len(pdf_bytes))
+    with open("test_report.pdf", "wb") as f:
+        f.write(pdf_bytes)
+    print("Success! PDF saved to test_report.pdf, length:", len(pdf_bytes))
 except Exception as e:
     import traceback
     traceback.print_exc()
+

@@ -6,7 +6,7 @@ import tldextract
 SUSPICIOUS_TLDS = {'tk', 'ml', 'ga', 'cf', 'gq', 'xyz', 'top', 'club', 'work', 'bid', 'link', 'click', 'science'}
 
 # List of popular brands to check for brand impersonation
-POPULAR_BRANDS = ['paypal', 'google', 'microsoft', 'apple', 'amazon', 'netflix', 'facebook', 'instagram', 'twitter', 'linkedin', 'yahoo', 'outlook', 'bankofamerica', 'chase', 'wellsfargo', 'citi', 'binance', 'coinbase']
+POPULAR_BRANDS = ['paypal', 'google', 'microsoft', 'apple', 'amazon', 'netflix', 'facebook', 'instagram', 'twitter', 'linkedin', 'yahoo', 'outlook', 'bankofamerica', 'chase', 'wellsfargo', 'citi', 'binance', 'coinbase', 'github', 'openai']
 
 # Official domains for each brand to check for TLD hijacking or spoofing
 OFFICIAL_BRAND_DOMAINS = {
@@ -27,7 +27,9 @@ OFFICIAL_BRAND_DOMAINS = {
     'wellsfargo': {'wellsfargo.com'},
     'citi': {'citi.com', 'citibank.com'},
     'binance': {'binance.com'},
-    'coinbase': {'coinbase.com'}
+    'coinbase': {'coinbase.com'},
+    'github': {'github.com'},
+    'openai': {'openai.com', 'chatgpt.com'}
 }
 
 # List of suspicious phishing keywords

@@ -2,7 +2,7 @@ import io
 from datetime import datetime
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
 import tldextract
@@ -31,6 +31,11 @@ class NumberedCanvas(canvas.Canvas):
     def draw_page_decorations(self, page_count):
         self.saveState()
         
+        # Skip drawing decorations on the cover page (Page 1)
+        if self._pageNumber == 1:
+            self.restoreState()
+            return
+            
         # Elegant, thin geometric page frame border
         self.setStrokeColor(colors.HexColor('#e2e8f0'))
         self.setLineWidth(0.75)
@@ -49,6 +54,382 @@ class NumberedCanvas(canvas.Canvas):
         self.drawRightString(612 - 54, 42, page_text)
         
         self.restoreState()
+
+
+def add_cover_page(story, scan_data, title_text, logo_source):
+    verdict_text = scan_data.get('verdict', 'Safe').upper()
+    score = scan_data.get('score', 0)
+    
+    cover_title_style = ParagraphStyle(
+        'CoverTitle',
+        fontName='Helvetica-Bold',
+        fontSize=28,
+        leading=34,
+        textColor=colors.HexColor('#0f172a'),
+        alignment=0,
+        spaceAfter=15
+    )
+    
+    cover_subtitle_style = ParagraphStyle(
+        'CoverSubtitle',
+        fontName='Helvetica',
+        fontSize=14,
+        leading=18,
+        textColor=colors.HexColor('#475569'),
+        alignment=0,
+        spaceAfter=30
+    )
+    
+    cover_meta_label = ParagraphStyle(
+        'CoverMetaLabel',
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#94a3b8'),
+        spaceAfter=4
+    )
+    
+    cover_meta_val = ParagraphStyle(
+        'CoverMetaVal',
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=15,
+        textColor=colors.HexColor('#0f172a'),
+        spaceAfter=15
+    )
+    
+    # 1. Add logo
+    import os
+    if logo_source and ((isinstance(logo_source, str) and os.path.exists(logo_source)) or not isinstance(logo_source, str)):
+        try:
+            logo_img = Image(logo_source, width=120, height=26)
+            logo_img.hAlign = 'LEFT'
+            story.append(logo_img)
+        except Exception:
+            logo_img = None
+    else:
+        logo_img = None
+        
+    if not logo_img:
+        fallback_style = ParagraphStyle('CoverFallbackLogo', fontName='Helvetica-Bold', fontSize=18, textColor=colors.HexColor('#0f172a'), alignment=0)
+        story.append(Paragraph("Phish<b>Zero</b> Security Sandbox", fallback_style))
+        
+    story.append(Spacer(1, 40))
+    
+    accent_bar = Table([['']], colWidths=[504], rowHeights=[4])
+    accent_bar.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#00d4ff')),
+        ('PADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(accent_bar)
+    story.append(Spacer(1, 20))
+    
+    story.append(Paragraph(title_text, cover_title_style))
+    story.append(Paragraph("Security Threat Intelligence & Sandbox Diagnostics Audit", cover_subtitle_style))
+    
+    story.append(Spacer(1, 40))
+    
+    if verdict_text == 'PHISHING':
+        verdict_color = colors.HexColor('#991b1b')
+        verdict_desc = "DANGER: High phishing indicators, malicious heuristics, or active domain threat blocks triggered."
+    elif verdict_text == 'SUSPICIOUS':
+        verdict_color = colors.HexColor('#c2410c')
+        verdict_desc = "WARNING: Suspicious parameters detected. Caution recommended before interaction."
+    else:
+        verdict_color = colors.HexColor('#065f46')
+        verdict_desc = "SAFE: No critical threat signatures or fraudulent keywords found."
+        
+    verdict_badge_style = ParagraphStyle(
+        'CoverVerdictBadge',
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=16,
+        textColor=colors.white,
+        alignment=1
+    )
+    verdict_badge_text = Paragraph(f"VERDICT: {verdict_text} (Score: {score}/100)", verdict_badge_style)
+    verdict_badge_tbl = Table([[verdict_badge_text]], colWidths=[280], rowHeights=[24])
+    verdict_badge_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), verdict_color),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('PADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(verdict_badge_tbl)
+    story.append(Spacer(1, 10))
+    
+    verdict_desc_style = ParagraphStyle(
+        'CoverVerdictDesc',
+        fontName='Helvetica-Oblique',
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#475569'),
+    )
+    story.append(Paragraph(verdict_desc, verdict_desc_style))
+    
+    story.append(Spacer(1, 80))
+    
+    date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    target_type = "File Binary Sandbox" if 'filetype' in scan_data else ("Email Spoof Analysis" if 'sender_analysis' in scan_data else "Website URL Scan")
+    target_val = scan_data.get('filename', 'Unknown File') if 'filetype' in scan_data else (scan_data.get('sender_analysis', {}).get('email', 'Unknown Email') if 'sender_analysis' in scan_data else scan_data.get('url', 'N/A'))
+    
+    meta_rows = [
+        [
+            Paragraph("AUDIT TARGET TYPE", cover_meta_label),
+            Paragraph("SCAN DATE / TIMESTAMP", cover_meta_label)
+        ],
+        [
+            Paragraph(target_type, cover_meta_val),
+            Paragraph(date_str, cover_meta_val)
+        ],
+        [
+            Paragraph("TARGET SIGNATURE", cover_meta_label),
+            Paragraph("CONFIDENCE LEVEL", cover_meta_label)
+        ],
+        [
+            Paragraph(f"<font face='Courier-Bold' size='9'>{target_val}</font>", cover_meta_val),
+            Paragraph(f"{scan_data.get('confidence', 95)}%", cover_meta_val)
+        ]
+    ]
+    
+    meta_table = Table(meta_rows, colWidths=[252, 252])
+    meta_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('PADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(meta_table)
+    
+    story.append(Spacer(1, 40))
+    
+    confidential_style = ParagraphStyle(
+        'CoverConfidential',
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#94a3b8'),
+        alignment=0
+    )
+    story.append(Paragraph("CLASSIFICATION: COMMERCIAL CONFIDENTIAL // PHISHZERO THREAT ENGINE REPORT", confidential_style))
+    story.append(PageBreak())
+
+
+def make_progress_bar(score, verdict_color):
+    width_active = max(1, score * 5.04)
+    width_inactive = max(1, (100 - score) * 5.04)
+    bar_table = Table([['', '']], colWidths=[width_active, width_inactive], rowHeights=[14])
+    bar_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), verdict_color),
+        ('BACKGROUND', (1, 0), (1, 0), colors.HexColor('#e2e8f0')),
+        ('PADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    return bar_table
+
+
+def make_recommendations_section(verdict_text, score, heading_style, cell_regular):
+    story_parts = []
+    story_parts.append(make_heading("Security Analyst Recommendations", heading_style))
+    
+    recs = []
+    if verdict_text == 'PHISHING':
+        recs = [
+            "<b>DO NOT ENTER PASSWORDS OR CREDENTIALS</b>: This domain shows extreme indicators of credential harvesting.",
+            "<b>DO NOT DOWNLOAD ATTACHMENTS/FILES</b>: File payloads from this source may host trojans or ransomware.",
+            "<b>REPORT DOMAIN IMMEDIATELY</b>: Flag this URL inside your email client or submit it to public blacklists.",
+            "<b>USE OFFICIAL CHANNELS</b>: Access the intended service only through official bookmarked links."
+        ]
+    elif verdict_text == 'SUSPICIOUS':
+        recs = [
+            "<b>VERIFY CERTIFICATE LIFECYCLE</b>: The domain's SSL layer has anomalies or is expiring soon.",
+            "<b>CONFIRM SENDER DETAILS</b>: Reach out to the sender via trusted channels to confirm intent.",
+            "<b>INSPECT REDIRECT PATHS</b>: Check the network connections triggered by this URL before logging in.",
+            "<b>ENABLE MULTI-FACTOR AUTHENTICATION</b>: Ensure MFA is active on all associated accounts."
+        ]
+    else:
+        recs = [
+            "<b>CONTINUE MONITORING</b>: Although scanned as clean, always exercise active caution with external links.",
+            "<b>USE AN ANTI-PHISHING EXTENSION</b>: Keep browser extensions active to prevent typosquatting attacks.",
+            "<b>KEEP SYSTEMS PATCHED</b>: Ensure your operating system and web browser security updates are installed."
+        ]
+        
+    rec_table_data = []
+    for r in recs:
+        bullet = Paragraph("<font name='Helvetica-Bold' color='#00d4ff'>&#9656;</font>", cell_regular)
+        text = Paragraph(r, cell_regular)
+        rec_table_data.append([bullet, text])
+        
+    rec_table = Table(rec_table_data, colWidths=[15, 489])
+    rec_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story_parts.append(rec_table)
+    return story_parts
+
+
+def make_checklist_section(scan_data, heading_style, cell_bold, cell_regular):
+    story_parts = []
+    story_parts.append(make_heading("Critical Security Checklist", heading_style))
+    
+    rows = [
+        [Paragraph("Security Parameter", cell_bold), Paragraph("Verification Check", cell_bold), Paragraph("Status", cell_bold)]
+    ]
+    
+    def format_badge(status_tuple):
+        label, color = status_tuple
+        return make_badge(label, color)
+        
+    if 'sender_analysis' in scan_data:
+        # Email Check
+        sender = scan_data.get('sender_analysis', {})
+        body = scan_data.get('body_analysis', {})
+        links = scan_data.get('link_analysis', [])
+        
+        has_public_provider = sender.get('is_public_provider', False)
+        sender_status = ("WARNING", colors.HexColor('#d97706')) if has_public_provider else ("PASS", colors.HexColor('#047857'))
+        
+        has_urgency = body.get('urgency_count', 0) > 0 or len(body.get('phishing_keywords', [])) > 0
+        urgency_status = ("FAIL", colors.HexColor('#b91c1c')) if has_urgency else ("PASS", colors.HexColor('#047857'))
+        
+        has_phish_links = any(link.get('verdict') in ['Phishing', 'Suspicious'] for link in links)
+        links_status = ("FAIL", colors.HexColor('#b91c1c')) if has_phish_links else ("PASS", colors.HexColor('#047857'))
+        
+        rows.extend([
+            [Paragraph("Sender Authenticity", cell_regular), Paragraph("Validates sender domain is not a public mail provider", cell_regular), format_badge(sender_status)],
+            [Paragraph("Urgency & Language Heuristics", cell_regular), Paragraph("Scans subject and body for threat/urgency syntax", cell_regular), format_badge(urgency_status)],
+            [Paragraph("Hyperlink Destination Review", cell_regular), Paragraph("Scans embedded URLs inside email for phishing targets", cell_regular), format_badge(links_status)]
+        ])
+    elif 'filetype' in scan_data:
+        # File/Binary Check
+        file_type = scan_data.get('filetype', 'apk')
+        high_risk = scan_data.get('high_risk_permissions', [])
+        url_scans = scan_data.get('url_scans', [])
+        stego = scan_data.get('stego_payload')
+        
+        if file_type == 'apk':
+            perm_status = ("FAIL", colors.HexColor('#b91c1c')) if len(high_risk) > 0 else ("PASS", colors.HexColor('#047857'))
+            url_status = ("FAIL", colors.HexColor('#b91c1c')) if any(u.get('verdict') in ['Phishing', 'Suspicious'] for u in url_scans) else ("PASS", colors.HexColor('#047857'))
+            rows.extend([
+                [Paragraph("High-Risk APK Permissions", cell_regular), Paragraph("Checks AndroidManifest.xml for dangerous permission requests", cell_regular), format_badge(perm_status)],
+                [Paragraph("Embedded Threat Hyperlinks", cell_regular), Paragraph("Audits hardcoded URLs parsed inside dex files", cell_regular), format_badge(url_status)]
+            ])
+        else:
+            # Image
+            stego_status = ("FAIL", colors.HexColor('#b91c1c')) if stego else ("PASS", colors.HexColor('#047857'))
+            qr_url = scan_data.get('qr_url')
+            qr_status = ("FAIL", colors.HexColor('#b91c1c')) if qr_url and any(u.get('verdict') in ['Phishing', 'Suspicious'] for u in url_scans) else ("PASS", colors.HexColor('#047857'))
+            rows.extend([
+                [Paragraph("Steganography Detection", cell_regular), Paragraph("Scans image binary streams for appended payload offsets", cell_regular), format_badge(stego_status)],
+                [Paragraph("QR Code Vector Audit", cell_regular), Paragraph("Decodes QR matrices and checks URL safety verdicts", cell_regular), format_badge(qr_status)]
+            ])
+    else:
+        # URL Check
+        results = scan_data.get('results', [])
+        ssl_info = scan_data.get('ssl', {})
+        whois_info = scan_data.get('whois', {})
+        
+        has_https = not any(sig.get('name') == "No HTTPS" and sig.get('triggered') for sig in results)
+        https_status = ("PASS", colors.HexColor('#047857')) if has_https else ("FAIL", colors.HexColor('#b91c1c'))
+        
+        has_ssl = ssl_info.get('valid', False) and not ssl_info.get('error')
+        ssl_status = ("PASS", colors.HexColor('#047857')) if has_ssl else ("FAIL", colors.HexColor('#b91c1c'))
+        
+        has_whois = not whois_info.get('error')
+        whois_status = ("PASS", colors.HexColor('#047857')) if has_whois else ("WARNING", colors.HexColor('#d97706'))
+        
+        age = whois_info.get('age_days', 365)
+        age_status = ("PASS", colors.HexColor('#047857')) if age >= 30 else ("FAIL", colors.HexColor('#b91c1c'))
+        
+        brand_impersonation = any(sig.get('name') == "Brand Impersonation" and sig.get('triggered') for sig in results)
+        brand_status = ("FAIL", colors.HexColor('#b91c1c')) if brand_impersonation else ("PASS", colors.HexColor('#047857'))
+        
+        keywords = any(sig.get('name') == "Phishing Keywords" and sig.get('triggered') for sig in results)
+        keyword_status = ("FAIL", colors.HexColor('#b91c1c')) if keywords else ("PASS", colors.HexColor('#047857'))
+        
+        rows.extend([
+            [Paragraph("HTTPS Deployment", cell_regular), Paragraph("Verifies secure protocol handshake over SSL", cell_regular), format_badge(https_status)],
+            [Paragraph("SSL Integrity Check", cell_regular), Paragraph("Validates certificate trust and expiration thresholds", cell_regular), format_badge(ssl_status)],
+            [Paragraph("WHOIS Query", cell_regular), Paragraph("Retrieves public registrar records for domain authenticity", cell_regular), format_badge(whois_status)],
+            [Paragraph("Domain Age Baseline", cell_regular), Paragraph("Checks if domain was registered at least 30 days ago", cell_regular), format_badge(age_status)],
+            [Paragraph("Brand Masquerading", cell_regular), Paragraph("Scans hostnames for typosquatting or brand impersonation", cell_regular), format_badge(brand_status)],
+            [Paragraph("Lexical Keyword Check", cell_regular), Paragraph("Scans URL strings for known harvesting keywords", cell_regular), format_badge(keyword_status)]
+        ])
+        
+    tbl = Table(rows, colWidths=[150, 274, 80])
+    tbl_styles = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f1f5f9')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+    ]
+    for i in range(1, len(rows)):
+        bg = colors.HexColor('#f8fafc') if i % 2 == 0 else colors.white
+        tbl_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
+        
+    tbl.setStyle(TableStyle(tbl_styles))
+    story_parts.append(KeepTogether([tbl]))
+    return story_parts
+
+
+def make_timeline_section(scan_data, heading_style, cell_bold, cell_regular):
+    story_parts = []
+    story_parts.append(make_heading("Security Timeline", heading_style))
+    
+    scan_date = datetime.now().strftime('%Y-%m-%d')
+    
+    if 'sender_analysis' in scan_data:
+        rows = [
+            [Paragraph("Security Milestone", cell_bold), Paragraph("Date Reference", cell_bold), Paragraph("Details & Context", cell_bold)],
+            [Paragraph("Mail Reception / Extraction", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph("Ingested into PhishZero email sandbox", cell_regular)],
+            [Paragraph("Headers & SPF Validation", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph("Sender authentication completed", cell_regular)],
+            [Paragraph("Deep Content Threat Scan", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph("Body heuristics and layout parsing completed", cell_regular)]
+        ]
+    elif 'filetype' in scan_data:
+        file_type = scan_data.get('filetype', 'apk').upper()
+        rows = [
+            [Paragraph("Security Milestone", cell_bold), Paragraph("Date Reference", cell_bold), Paragraph("Details & Context", cell_bold)],
+            [Paragraph("Binary File Uploaded", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph(f"Uploaded {file_type} binary target", cell_regular)],
+            [Paragraph("Disassembly & Parsing", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph("Manifest and binary payload parsed", cell_regular)],
+            [Paragraph("Threat Sandbox Analysis", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph("Heuristic signatures and URLs checked", cell_regular)]
+        ]
+    else:
+        whois_info = scan_data.get('whois', {})
+        ssl_info = scan_data.get('ssl', {})
+        created_date = whois_info.get('creation_date', 'N/A')
+        expiry_date = ssl_info.get('expiry_date', 'N/A')
+        age_days = whois_info.get('age_days', 0)
+        
+        rows = [
+            [Paragraph("Security Milestone", cell_bold), Paragraph("Registered Date", cell_bold), Paragraph("Details & Age Reference", cell_bold)],
+            [Paragraph("Domain Creation Date", cell_regular), Paragraph(str(created_date), cell_regular), Paragraph(f"Active for {age_days} days" if age_days > 0 else "Age record missing", cell_regular)],
+            [Paragraph("SSL Certificate Expiration", cell_regular), Paragraph(str(expiry_date), cell_regular), Paragraph(f"Expires in {ssl_info.get('days_left', 0)} days" if ssl_info.get('valid') else "Invalid/No SSL certificate", cell_regular)],
+            [Paragraph("PhishZero Threat Scan", cell_regular), Paragraph(str(scan_date), cell_regular), Paragraph("Threat analysis executed dynamically", cell_regular)]
+        ]
+        
+    tbl = Table(rows, colWidths=[150, 120, 234])
+    tbl_styles = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f1f5f9')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+    ]
+    for i in range(1, len(rows)):
+        bg = colors.HexColor('#f8fafc') if i % 2 == 0 else colors.white
+        tbl_styles.append(('BACKGROUND', (0, i), (-1, i), bg))
+        
+    tbl.setStyle(TableStyle(tbl_styles))
+    story_parts.append(KeepTogether([tbl]))
+    return story_parts
 
 
 def make_badge(label, bg_color):
@@ -179,13 +560,16 @@ def generate_url_pdf(scan_data, logo_source="logo.png"):
         verdict_color = colors.HexColor('#065f46') # Deep Forest Green
         verdict_label = "VERDICT: CLEAN / UNCOMPROMISED"
 
+    title_text = "Phishing URL Analysis Report" if verdict_text == 'PHISHING' else "Website Security Analysis Report"
+
     story = []
+    
+    # 0. Add Cover Page
+    add_cover_page(story, scan_data, title_text, logo_source)
 
     # 1. Header Hero Block (Asymmetric Two-Column Brand Layout)
     date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     meta_text = f"AUDIT TIMESTAMP: {date_str}  //  ENGINE: RUNTIME V1.0"
-    
-    title_text = "Phishing URL Analysis Report" if verdict_text == 'PHISHING' else "Website Security Analysis Report"
     
     # Left column content (Metadata and Text Title)
     left_content = [
@@ -261,6 +645,8 @@ def generate_url_pdf(scan_data, logo_source="logo.png"):
         ('RIGHTPADDING', (0, 0), (-1, -1), 16),
     ]))
     story.append(banner_table)
+    story.append(Spacer(1, 8))
+    story.append(make_progress_bar(score, verdict_color))
     story.append(Spacer(1, 14))
 
     # 3. Analyzed Target Information Card
@@ -436,6 +822,11 @@ def generate_url_pdf(scan_data, logo_source="logo.png"):
         
     tech_table.setStyle(TableStyle(tech_styles))
     story.append(KeepTogether([tech_table]))
+    
+    # 6. Checklist, Timeline & Recommendations
+    story.extend(make_checklist_section(scan_data, heading_style, cell_bold, cell_regular))
+    story.extend(make_timeline_section(scan_data, heading_style, cell_bold, cell_regular))
+    story.extend(make_recommendations_section(verdict_text, score, heading_style, cell_regular))
 
     # Build Document Execution Flow
     doc.build(story, canvasmaker=NumberedCanvas)
@@ -520,6 +911,9 @@ def generate_email_pdf(scan_data, logo_source="logo.png"):
         verdict_label = "VERDICT: CLEAN / UNCOMPROMISED"
 
     story = []
+    
+    # 0. Add Cover Page
+    add_cover_page(story, scan_data, "Email Security Analysis Report", logo_source)
 
     # 1. Header Hero Block
     date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -597,6 +991,8 @@ def generate_email_pdf(scan_data, logo_source="logo.png"):
         ('RIGHTPADDING', (0, 0), (-1, -1), 16),
     ]))
     story.append(banner_table)
+    story.append(Spacer(1, 8))
+    story.append(make_progress_bar(score, verdict_color))
     story.append(Spacer(1, 14))
 
     # 3. Sender & Content Diagnostics Grid
@@ -727,6 +1123,11 @@ def generate_email_pdf(scan_data, logo_source="logo.png"):
         no_links_p = Paragraph("No suspicious or flagged links were parsed inside the email text body.", cell_regular)
         story.append(no_links_p)
         
+    # 4. Checklist, Timeline & Recommendations
+    story.extend(make_checklist_section(scan_data, heading_style, cell_bold, cell_regular))
+    story.extend(make_timeline_section(scan_data, heading_style, cell_bold, cell_regular))
+    story.extend(make_recommendations_section(verdict_text, score, heading_style, cell_regular))
+
     doc.build(story, canvasmaker=NumberedCanvas)
     buffer.seek(0)
     return buffer.getvalue()
@@ -821,6 +1222,9 @@ def generate_file_pdf(scan_data, logo_source="logo.png"):
         verdict_label = "VERDICT: SAFE / CLEAN FILE"
 
     story = []
+    
+    # 0. Add Cover Page
+    add_cover_page(story, scan_data, "File Threat Sandbox Report", logo_source)
 
     # 1. Header Hero Block
     date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -898,6 +1302,8 @@ def generate_file_pdf(scan_data, logo_source="logo.png"):
         ('RIGHTPADDING', (0, 0), (-1, -1), 16),
     ]))
     story.append(banner_table)
+    story.append(Spacer(1, 8))
+    story.append(make_progress_bar(score, verdict_color))
     story.append(Spacer(1, 14))
 
     # 3. File Properties Card
@@ -1046,6 +1452,11 @@ def generate_file_pdf(scan_data, logo_source="logo.png"):
         no_urls_p = Paragraph("No embedded/extracted URL domains were found or parsed during sandbox decompilation.", cell_regular)
         story.append(no_urls_p)
         
+    # 4. Checklist, Timeline & Recommendations
+    story.extend(make_checklist_section(scan_data, heading_style, cell_bold, cell_regular))
+    story.extend(make_timeline_section(scan_data, heading_style, cell_bold, cell_regular))
+    story.extend(make_recommendations_section(verdict_text, score, heading_style, cell_regular))
+
     doc.build(story, canvasmaker=NumberedCanvas)
     buffer.seek(0)
     return buffer.getvalue()

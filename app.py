@@ -661,7 +661,81 @@ def save_rating():
     except Exception as e:
         return jsonify({"error": f"Failed to save rating: {str(e)}"}), 500
         
-    return jsonify({"success": True, "message": "Rating saved successfully"})
+@app.route('/api/proxy', methods=['GET'])
+def proxy_url():
+    """
+    Proxies target web pages for the PhishZero Interactive Sandbox,
+    bypassing X-Frame-Options & CSP headers, and inserting base tag.
+    """
+    import urllib.request
+    import urllib.error
+
+    raw_url = request.args.get('url', '').strip()
+    if not raw_url:
+        return "URL parameter missing", 400
+        
+    target_url = raw_url if raw_url.startswith(('http://', 'https://')) else f'https://{raw_url}'
+    
+    try:
+        req = urllib.request.Request(
+            target_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5'
+            }
+        )
+        with urllib.request.urlopen(req, timeout=8) as response:
+            html_content = response.read().decode('utf-8', errors='ignore')
+            
+            # Inject base tag into head so relative URLs resolve correctly
+            base_tag = f'<base href="{target_url}">'
+            if '<head>' in html_content:
+                html_content = html_content.replace('<head>', f'<head>{base_tag}', 1)
+            elif '<HEAD>' in html_content:
+                html_content = html_content.replace('<HEAD>', f'<HEAD>{base_tag}', 1)
+            else:
+                html_content = base_tag + html_content
+
+            res = app.response_class(
+                response=html_content,
+                status=200,
+                mimetype='text/html'
+            )
+            res.headers['X-Frame-Options'] = 'ALLOWALL'
+            res.headers['Content-Security-Policy'] = "frame-ancestors *"
+            return res
+    except Exception as e:
+        err_msg = str(e)
+        fallback_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #060b14; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; text-align: center; }}
+        .card {{ background: #0d172a; border: 1px solid #1e293b; padding: 28px; border-radius: 16px; max-width: 520px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }}
+        h2 {{ color: #38bdf8; margin-top: 0; font-size: 20px; font-weight: 700; }}
+        p {{ font-size: 13.5px; color: #94a3b8; line-height: 1.6; margin: 12px 0; }}
+        .badge {{ background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 6px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; display: inline-block; word-break: break-all; }}
+        .tip {{ font-size: 12px; color: #38bdf8; margin-top: 18px; font-weight: 600; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>PhishZero Threat Sandbox Container</h2>
+        <p>Target site <b>{target_url}</b> could not be dynamically proxied into the interactive thread.</p>
+        <div class="badge">{err_msg}</div>
+        <p class="tip">💡 Tip: Switch to the <b>Safe Capture (Screenshot)</b> view above for visual analysis.</p>
+    </div>
+</body>
+</html>"""
+        res = app.response_class(
+            response=fallback_html,
+            status=200,
+            mimetype='text/html'
+        )
+        res.headers['X-Frame-Options'] = 'ALLOWALL'
+        return res
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

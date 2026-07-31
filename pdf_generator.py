@@ -184,11 +184,25 @@ def build_single_page_pdf(scan_data, target_type, logo_source="logo.png"):
             
     if resolved_logo and ((isinstance(resolved_logo, str) and os.path.exists(resolved_logo)) or not isinstance(resolved_logo, str)):
         try:
-            # Scale ratio is maintained based on original dimensions (1024x409) -> width 90, height 36
-            logo_img = Image(resolved_logo, width=90, height=36)
+            from PIL import Image as PILImage
+            with PILImage.open(resolved_logo) as im:
+                orig_w, orig_h = im.size
+            max_w, max_h = 120.0, 32.0
+            aspect = orig_w / float(orig_h)
+            if orig_w / max_w > orig_h / max_h:
+                target_w = max_w
+                target_h = max_w / aspect
+            else:
+                target_h = max_h
+                target_w = max_h * aspect
+            logo_img = Image(resolved_logo, width=target_w, height=target_h)
             logo_img.hAlign = 'LEFT'
         except Exception:
-            logo_img = None
+            try:
+                logo_img = Image(resolved_logo, width=90, height=36)
+                logo_img.hAlign = 'LEFT'
+            except Exception:
+                logo_img = None
             
     logo_container = []
     if logo_img:
